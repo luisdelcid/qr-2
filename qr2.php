@@ -197,6 +197,7 @@
         (function() {
             const el = (id) => document.getElementById(id);
             const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
             const $zoomRange = el('zoom-range');
             const $zoomMin = el('zoom-min');
@@ -440,15 +441,12 @@
             async function tryFocusWithPoint(x, y) {
                 const point = { x, y };
                 const attempts = [];
-                if (focusCapabilities.modes.includes('single-shot')) {
-                    attempts.push({ focusMode: 'single-shot', pointsOfInterest: [point] });
-                }
-                if (focusCapabilities.modes.includes('manual')) {
-                    attempts.push({ focusMode: 'manual', pointsOfInterest: [point] });
-                }
-                if (!attempts.length) {
-                    attempts.push({ pointsOfInterest: [point] });
-                }
+                ['single-shot', 'manual'].forEach((mode) => {
+                    if (mode === 'single-shot' || focusCapabilities.modes.includes(mode)) {
+                        attempts.push({ focusMode: mode, pointsOfInterest: [point] });
+                    }
+                });
+                attempts.push({ pointsOfInterest: [point] });
 
                 for (const constraint of attempts) {
                     try {
@@ -462,17 +460,63 @@
             }
 
             async function tryFocusByMode() {
-                const order = ['single-shot', 'continuous', 'auto'];
+                const order = ['single-shot', 'auto', 'continuous'];
                 for (const mode of order) {
                     if (!focusCapabilities.modes.includes(mode)) continue;
                     try {
                         await html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: mode }] });
-                        return true;
+                        return mode;
                     } catch (_) {
                         // continue
                     }
                 }
-                return false;
+                return null;
+            }
+
+            async function nudgeFocusWithZoom() {
+                if (!hasZoom) return false;
+                const baseZoom = typeof currentZoom === 'number' ? currentZoom : (zoomDefault || 1);
+                const stepSize = zoomStep || 0.1;
+                const bump = clamp(baseZoom + Math.max(stepSize, 0.05), zoomMin, zoomMax);
+                if (Math.abs(bump - baseZoom) < 0.01) return false;
+
+                try {
+                    await html5QrCode.applyVideoConstraints({ advanced: [{ zoom: bump }] });
+                    await sleep(140);
+                } catch (err) {
+                    console.warn('Zoom nudge failed (bump):', err);
+                    return false;
+                }
+
+                try {
+                    await html5QrCode.applyVideoConstraints({ advanced: [{ zoom: baseZoom }] });
+                    return true;
+                } catch (err) {
+                    console.warn('Zoom nudge failed (restore):', err);
+                    return false;
+                } finally {
+                    currentZoom = baseZoom;
+                    $zoomRange.value = baseZoom;
+                    updateButtons();
+                }
+            }
+
+            async function quickRefocus() {
+                if (typeof html5QrCode.pause !== 'function' || typeof html5QrCode.resume !== 'function') return false;
+                try {
+                    await html5QrCode.pause(true);
+                    await sleep(160);
+                    await html5QrCode.resume();
+                    return true;
+                } catch (err) {
+                    console.warn('Quick refocus failed:', err);
+                    try {
+                        await html5QrCode.resume();
+                    } catch (_) {
+                        // ignore
+                    }
+                    return false;
+                }
             }
 
             async function handleTapToFocus(clientX, clientY) {
@@ -507,8 +551,21 @@
                     if (focusCapabilities.hasPointsOfInterest) {
                         success = await tryFocusWithPoint(normX, normY);
                     }
+
+                    let appliedMode = null;
                     if (!success) {
-                        success = await tryFocusByMode();
+                        appliedMode = await tryFocusByMode();
+                        if (appliedMode && appliedMode !== 'continuous') {
+                            success = true;
+                        }
+                    }
+
+                    if (!success) {
+                        success = await nudgeFocusWithZoom();
+                    }
+
+                    if (!success) {
+                        success = await quickRefocus();
                     }
                 } catch (err) {
                     console.warn('Tap-to-focus error:', err);

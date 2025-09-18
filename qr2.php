@@ -10,60 +10,148 @@
         <!-- html5-qrcode -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" integrity="sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdexq+GAlNkNNqVC7YyIV+NwqCTJe2hDWCiffTyRNOeGEzRRJ9ifvRm/HCzGYg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         <style>
-            #html5-qrcode, #html5-qrcode video {
+            #html5-qrcode,
+            #html5-qrcode video {
                 width: 100%;
                 height: 100%;
             }
-             #html5-qrcode video {
-                 object-fit: cover;
-             }
-            /*#status {
-                display: block;
-                position: absolute;
-                top: 0;
-                left: 0;
-                z-index: 1;
-                background: #343a40;
-                color: #FFECEC;
-                text-align: center;
+
+            #html5-qrcode video {
+                object-fit: cover;
+            }
+
+            .scanner-stage {
+                position: relative;
                 width: 100%;
-            }*/
-            /* Cambiar color del thumb a gris (secondary) y hacerlo más grande */
+                height: 100%;
+                border-radius: inherit;
+                overflow: hidden;
+            }
+
+            #tap-to-focus-overlay {
+                position: absolute;
+                inset: 0;
+                z-index: 5;
+                border-radius: inherit;
+                pointer-events: none;
+                touch-action: manipulation;
+                background: transparent;
+            }
+
+            #tap-to-focus-overlay.focus-overlay--active {
+                pointer-events: auto;
+            }
+
+            #tap-to-focus-overlay.focus-overlay--available {
+                cursor: crosshair;
+            }
+
+            .focus-ring {
+                position: absolute;
+                left: 0;
+                top: 0;
+                display: block;
+                width: 120px;
+                height: 120px;
+                border-radius: 50%;
+                border: 1px solid currentColor;
+                color: #f8d75c;
+                pointer-events: none;
+                transform: translate(-50%, -50%) scale(0.85);
+                opacity: 0;
+                transition: opacity 0.18s ease, transform 0.18s ease;
+            }
+
+            .focus-ring.focus-ring--visible {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            .focus-ring.focus-ring--success {
+                color: #f5d64c;
+            }
+
+            .focus-ring.focus-ring--error {
+                color: #ff6b6b;
+            }
+
+            .focus-ring.focus-ring--fade-out {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+
+            .focus-ring__tick {
+                position: absolute;
+                background: currentColor;
+                opacity: 0.9;
+            }
+
+            .focus-ring__tick--top,
+            .focus-ring__tick--bottom {
+                width: 22%;
+                height: 1px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .focus-ring__tick--top {
+                top: 16%;
+            }
+
+            .focus-ring__tick--bottom {
+                bottom: 16%;
+            }
+
+            .focus-ring__tick--left,
+            .focus-ring__tick--right {
+                width: 1px;
+                height: 22%;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+
+            .focus-ring__tick--left {
+                left: 16%;
+            }
+
+            .focus-ring__tick--right {
+                right: 16%;
+            }
+
             .custom-range::-webkit-slider-thumb {
                 background-color: #343a40;
                 width: 2.375rem;
-              height: 1.5rem;
-              margin-top: -0.5rem; /* centrado sobre el track */
-              border-radius: 2rem; /* hace que se vea ovalado */
+                height: 1.5rem;
+                margin-top: -0.5rem;
+                border-radius: 2rem;
             }
 
             .custom-range::-webkit-slider-thumb:active {
-              background-color: #7b7f83; /* un tono más oscuro al presionar */
+                background-color: #7b7f83;
             }
 
             .custom-range::-moz-range-thumb {
-              background-color: #343a40;
-              width: 2.375rem;
-              height: 1.5rem;
-              border-radius: 2rem;
+                background-color: #343a40;
+                width: 2.375rem;
+                height: 1.5rem;
+                border-radius: 2rem;
             }
 
             .custom-range::-moz-range-thumb:active {
-              background-color: #7b7f83;
+                background-color: #7b7f83;
             }
 
             .custom-range::-ms-thumb {
-              background-color: #343a40;
-              width: 2.375rem;
-              height: 1.5rem;
-              border-radius: 2rem;
-              margin-top: 0; /* en IE/Edge no se necesita ajuste extra */
+                background-color: #343a40;
+                width: 2.375rem;
+                height: 1.5rem;
+                border-radius: 2rem;
+                margin-top: 0;
             }
 
             .custom-range::-ms-thumb:active {
-              background-color: #7b7f83;
+                background-color: #7b7f83;
             }
-
         </style>
     </head>
     <body>
@@ -72,9 +160,9 @@
                 <div class="col-md-4 offset-md-4">
 
                     <div class="embed-responsive embed-responsive-1by1 bg-dark" style="border-radius: 36px;">
-                        <div class="embed-responsive-item">
+                        <div class="embed-responsive-item scanner-stage">
                             <div id="html5-qrcode" class="h-100 w-100"></div>
-                            <!--<div id="status" class="text-truncate"></div>-->
+                            <div id="tap-to-focus-overlay"></div>
                         </div>
                     </div>
 
@@ -85,7 +173,7 @@
                         <button id="stop" type="button" class="btn btn-dark px-2 rounded-pill" title="Stop"><i class="fa-solid fa-stop fa-fw"></i></button>
                     </div>
 
-                    <div id="zoom-in-out">
+                    <div id="torch-zoom-in-out">
                         <div class="mt-3 p-3 border bg-light rounded-pill d-flex justify-content-between align-items-center">
                             <button id="torch" type="button" class="btn btn-dark px-2 rounded-pill" title="Torch"><i class="fa-solid fa-bolt-lightning fa-fw"></i></button>
                             <div class="mx-3 flex-grow-1 d-flex justify-content-between align-items-center">
@@ -107,9 +195,9 @@
 
         <script>
         (function() {
-            // UI elements
             const el = (id) => document.getElementById(id);
-            //const $zoomWrap = el('zoom-in-out');
+            const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
             const $zoomRange = el('zoom-range');
             const $zoomMin = el('zoom-min');
             const $zoomMax = el('zoom-max');
@@ -119,10 +207,18 @@
             const $btnStop = el('stop');
             const $btnZoomReset = el('zoom');
             const $status = el('status');
+            const $torchZoomWrap = el('torch-zoom-in-out');
+            const $focusOverlay = el('tap-to-focus-overlay');
 
-            // Scanner
+            const zoomRangeDefaults = {
+                min: $zoomRange.getAttribute('min'),
+                max: $zoomRange.getAttribute('max'),
+                step: $zoomRange.getAttribute('step'),
+                value: $zoomRange.value || '50'
+            };
+
             let html5QrCode = new Html5Qrcode("html5-qrcode");
-            let state = 'stopped'; // 'stopped' | 'running' | 'paused'
+            let state = 'stopped';
             let hasZoom = false;
             let hasTorch = false;
             let torchOn = false;
@@ -132,51 +228,120 @@
             let zoomStep = 0.1;
             let currentZoom = 1;
             let statusMessage = '';
+            let tapToFocusSupported = false;
+
+            const focusCapabilities = {
+                hasPointsOfInterest: false,
+                modes: []
+            };
+            let focusTapStart = null;
+            let focusInProgress = false;
+            let activeFocusRing = null;
 
             function setStatus(msg, persist = true) {
                 if (persist) statusMessage = msg || '';
                 $status.textContent = msg || '';
-                //$status.style.display = state === 'paused' ? 'none' : 'block';
+            }
+
+            function resetZoomUI() {
+                if (zoomRangeDefaults.min !== null) $zoomRange.setAttribute('min', zoomRangeDefaults.min);
+                else $zoomRange.removeAttribute('min');
+                if (zoomRangeDefaults.max !== null) $zoomRange.setAttribute('max', zoomRangeDefaults.max);
+                else $zoomRange.removeAttribute('max');
+                if (zoomRangeDefaults.step !== null) $zoomRange.setAttribute('step', zoomRangeDefaults.step);
+                else $zoomRange.removeAttribute('step');
+                $zoomRange.value = zoomRangeDefaults.value;
+                $zoomMin.textContent = 'x';
+                $zoomMax.textContent = 'x';
+            }
+
+            function clearFocusRing() {
+                if (activeFocusRing && activeFocusRing.parentNode) {
+                    activeFocusRing.parentNode.removeChild(activeFocusRing);
+                }
+                activeFocusRing = null;
+            }
+
+            function spawnFocusRing(clientX, clientY) {
+                if (!$focusOverlay) return null;
+                const overlayRect = $focusOverlay.getBoundingClientRect();
+                if (!overlayRect.width || !overlayRect.height) return null;
+
+                const minEdge = Math.min(overlayRect.width, overlayRect.height);
+                const size = clamp(minEdge * 0.35, 72, 180);
+                const half = size / 2;
+                const localX = clamp(clientX - overlayRect.left, half, overlayRect.width - half);
+                const localY = clamp(clientY - overlayRect.top, half, overlayRect.height - half);
+
+                clearFocusRing();
+
+                const ring = document.createElement('div');
+                ring.className = 'focus-ring';
+                ring.style.width = `${size}px`;
+                ring.style.height = `${size}px`;
+                ring.style.left = `${localX}px`;
+                ring.style.top = `${localY}px`;
+
+                ['top', 'right', 'bottom', 'left'].forEach((pos) => {
+                    const tick = document.createElement('span');
+                    tick.className = `focus-ring__tick focus-ring__tick--${pos}`;
+                    ring.appendChild(tick);
+                });
+
+                $focusOverlay.appendChild(ring);
+                requestAnimationFrame(() => ring.classList.add('focus-ring--visible'));
+                activeFocusRing = ring;
+                return ring;
+            }
+
+            function markFocusRing(ring, status) {
+                if (!ring) return;
+                ring.classList.add(status === 'success' ? 'focus-ring--success' : 'focus-ring--error');
+                const fadeDelay = status === 'success' ? 700 : 500;
+                setTimeout(() => ring.classList.add('focus-ring--fade-out'), fadeDelay);
+                setTimeout(() => {
+                    if (ring.parentNode) ring.parentNode.removeChild(ring);
+                    if (ring === activeFocusRing) activeFocusRing = null;
+                }, fadeDelay + 220);
+            }
+
+            function updateFocusOverlayState() {
+                if (!$focusOverlay) return;
+                const overlayActive = state === 'running';
+                $focusOverlay.classList.toggle('focus-overlay--active', overlayActive);
+                $focusOverlay.classList.toggle('focus-overlay--available', overlayActive && tapToFocusSupported);
+                if (!overlayActive) clearFocusRing();
+            }
+
+            function updateControlsVisibility() {
+                if (!$torchZoomWrap) return;
+                const showWrap = state !== 'stopped' && (hasZoom || hasTorch);
+                $torchZoomWrap.classList.toggle('d-none', !showWrap);
             }
 
             function updateButtons() {
-                // Zoom controls
-                const showZoom = hasZoom && state !== 'stopped';
-                // Bootstrap display utilities: remove `d-flex` when hiding and
-                // add it back when showing to avoid conflicts with `d-none`.
-
-                //$zoomWrap.classList.toggle('d-block', showZoom);
-                //$zoomWrap.classList.toggle('d-none', !showZoom);
-
-                //$btnZoomReset.classList.toggle('d-none', !showZoom);
-                // Disable zoom slider when paused or zoom unsupported
                 $zoomRange.disabled = !hasZoom || state !== 'running';
-                // Enable reset only when zoom differs from default
                 $btnZoomReset.disabled = !hasZoom || state !== 'running' || currentZoom === zoomDefault;
-
                 $btnStop.disabled = state === 'stopped';
-                //$btnStop.classList.toggle('d-block', state !== 'stopped');
-
-                // Torch
                 $btnTorch.disabled = !hasTorch || state === 'stopped';
-                //$btnTorch.classList.toggle('d-none', !hasTorch || state === 'stopped');
 
-                // Play / Pause
                 if (state === 'stopped') {
                     $btnPlay.classList.remove('d-none');
                     $btnPause.classList.add('d-none');
                 } else if (state === 'running') {
                     $btnPlay.classList.add('d-none');
                     $btnPause.classList.remove('d-none');
-                } else if (state === 'paused') {
+                } else {
                     $btnPlay.classList.remove('d-none');
                     $btnPause.classList.add('d-none');
                 }
+
+                updateControlsVisibility();
+                updateFocusOverlayState();
             }
 
             async function readCapabilitiesAndSetupUI() {
                 try {
-                    // These methods exist in recent versions of html5-qrcode
                     const caps = html5QrCode.getRunningTrackCapabilities
                         ? html5QrCode.getRunningTrackCapabilities()
                         : null;
@@ -185,45 +350,62 @@
                         ? html5QrCode.getRunningTrackSettings()
                         : null;
 
-                    // Zoom
                     if (caps && typeof caps.zoom !== 'undefined') {
                         hasZoom = true;
-                        // zoom can be a number or object (min/max/step). Handle both.
                         if (typeof caps.zoom === 'object') {
                             zoomMin = caps.zoom.min ?? 1;
                             zoomMax = caps.zoom.max ?? 1;
                             zoomStep = caps.zoom.step ?? 0.1;
                         } else {
-                            // Some devices expose a simple numeric range, use defaults
                             zoomMin = 1;
                             zoomMax = caps.zoom || 1;
                             zoomStep = 0.1;
                         }
-                        // Default/current
-                        zoomDefault = (settings && settings.zoom) ? settings.zoom : 1;
 
-                        // Init UI
+                        zoomDefault = (settings && typeof settings.zoom === 'number') ? settings.zoom : 1;
+                        currentZoom = (settings && typeof settings.zoom === 'number') ? settings.zoom : zoomDefault;
+
                         $zoomRange.min = zoomMin;
                         $zoomRange.max = zoomMax;
                         $zoomRange.step = zoomStep;
-                        $zoomRange.value = (settings && settings.zoom) ? settings.zoom : zoomDefault;
-                        currentZoom = (settings && settings.zoom) ? settings.zoom : zoomDefault;
+                        $zoomRange.value = currentZoom;
 
-                        // Labels x multiplier (rounded to 2 decimals)
-                        $zoomMin.textContent = (Math.round(zoomMin * 100) / 100) + 'x';
-                        $zoomMax.textContent = (Math.round(zoomMax * 100) / 100) + 'x';
+                        $zoomMin.textContent = `${Math.round(zoomMin * 100) / 100}x`;
+                        $zoomMax.textContent = `${Math.round(zoomMax * 100) / 100}x`;
                     } else {
                         hasZoom = false;
+                        zoomDefault = 1;
+                        zoomMin = 1;
+                        zoomMax = 1;
+                        zoomStep = 0.1;
                         currentZoom = zoomDefault;
+                        resetZoomUI();
                     }
 
-                    // Torch
                     hasTorch = !!(caps && caps.torch);
+                    if (!hasTorch) {
+                        torchOn = false;
+                        $btnTorch.classList.add('btn-dark');
+                        $btnTorch.classList.remove('btn-warning');
+                    }
 
+                    focusCapabilities.hasPointsOfInterest = !!(caps && caps.pointsOfInterest);
+                    const focusModes = caps && caps.focusMode;
+                    if (Array.isArray(focusModes)) {
+                        focusCapabilities.modes = focusModes.slice();
+                    } else if (typeof focusModes === 'string') {
+                        focusCapabilities.modes = [focusModes];
+                    } else {
+                        focusCapabilities.modes = [];
+                    }
+                    tapToFocusSupported = focusCapabilities.hasPointsOfInterest || focusCapabilities.modes.length > 0;
                 } catch (e) {
-                    // If capabilities are not available, hide advanced controls
                     hasZoom = false;
                     hasTorch = false;
+                    tapToFocusSupported = false;
+                    focusCapabilities.hasPointsOfInterest = false;
+                    focusCapabilities.modes = [];
+                    resetZoomUI();
                 } finally {
                     updateButtons();
                 }
@@ -231,10 +413,9 @@
 
             async function applyZoom(value) {
                 if (!hasZoom) return;
-                const v = Math.min(Math.max(Number(value), zoomMin), zoomMax);
+                const v = clamp(Number(value), zoomMin, zoomMax);
                 try {
                     await html5QrCode.applyVideoConstraints({ advanced: [{ zoom: v }] });
-                    // keep slider synced
                     $zoomRange.value = v;
                     currentZoom = v;
                 } catch (err) {
@@ -256,80 +437,151 @@
                 }
             }
 
+            async function tryFocusWithPoint(x, y) {
+                const point = { x, y };
+                const attempts = [];
+                if (focusCapabilities.modes.includes('single-shot')) {
+                    attempts.push({ focusMode: 'single-shot', pointsOfInterest: [point] });
+                }
+                if (focusCapabilities.modes.includes('manual')) {
+                    attempts.push({ focusMode: 'manual', pointsOfInterest: [point] });
+                }
+                if (!attempts.length) {
+                    attempts.push({ pointsOfInterest: [point] });
+                }
+
+                for (const constraint of attempts) {
+                    try {
+                        await html5QrCode.applyVideoConstraints({ advanced: [constraint] });
+                        return true;
+                    } catch (_) {
+                        // continue
+                    }
+                }
+                return false;
+            }
+
+            async function tryFocusByMode() {
+                const order = ['single-shot', 'continuous', 'auto'];
+                for (const mode of order) {
+                    if (!focusCapabilities.modes.includes(mode)) continue;
+                    try {
+                        await html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: mode }] });
+                        return true;
+                    } catch (_) {
+                        // continue
+                    }
+                }
+                return false;
+            }
+
+            async function handleTapToFocus(clientX, clientY) {
+                if (focusInProgress) return;
+                const ring = spawnFocusRing(clientX, clientY);
+                if (!ring) return;
+
+                if (!tapToFocusSupported) {
+                    markFocusRing(ring, 'error');
+                    return;
+                }
+
+                const video = document.querySelector('#html5-qrcode video');
+                if (!video) {
+                    markFocusRing(ring, 'error');
+                    return;
+                }
+
+                const rect = video.getBoundingClientRect();
+                if (!rect.width || !rect.height) {
+                    markFocusRing(ring, 'error');
+                    return;
+                }
+
+                const normX = clamp((clientX - rect.left) / rect.width, 0, 1);
+                const normY = clamp((clientY - rect.top) / rect.height, 0, 1);
+
+                focusInProgress = true;
+                let success = false;
+
+                try {
+                    if (focusCapabilities.hasPointsOfInterest) {
+                        success = await tryFocusWithPoint(normX, normY);
+                    }
+                    if (!success) {
+                        success = await tryFocusByMode();
+                    }
+                } catch (err) {
+                    console.warn('Tap-to-focus error:', err);
+                } finally {
+                    focusInProgress = false;
+                }
+
+                markFocusRing(ring, success ? 'success' : 'error');
+            }
+
+            function bindTapToFocusEvents() {
+                if (!$focusOverlay) return;
+
+                $focusOverlay.addEventListener('pointerdown', (e) => {
+                    if (state !== 'running') return;
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    focusTapStart = { x: e.clientX, y: e.clientY, t: performance.now() };
+                });
+
+                $focusOverlay.addEventListener('pointerup', (e) => {
+                    if (state !== 'running' || !focusTapStart) return;
+                    if (e.pointerType === 'mouse' && e.button !== 0) {
+                        focusTapStart = null;
+                        return;
+                    }
+                    const dt = performance.now() - focusTapStart.t;
+                    const distance = Math.hypot(e.clientX - focusTapStart.x, e.clientY - focusTapStart.y);
+                    focusTapStart = null;
+                    if (dt > 280 || distance > 12) return;
+                    handleTapToFocus(e.clientX, e.clientY).catch((err) => console.warn('Tap-to-focus failed:', err));
+                });
+
+                $focusOverlay.addEventListener('pointercancel', () => { focusTapStart = null; });
+                $focusOverlay.addEventListener('pointerleave', () => { focusTapStart = null; });
+            }
+
             async function startScanner() {
                 if (state !== 'stopped') return;
 
                 setStatus('Iniciando cámara');
-                // Prefer rear camera. Try strict environment; if it fails, use non-strict.
-                const squareCameraConstraints = {
-                    width: { ideal: 720 },
-                    height: { ideal: 720 },
-                    aspectRatio: 1
-                };
-                const cameraConfigStrict = { facingMode: { exact: "environment" } };
-                const cameraConfigFallback = { facingMode: "environment" };
+                const cameraConfigStrict = { facingMode: { exact: 'environment' } };
+                const cameraConfigFallback = { facingMode: 'environment' };
 
                 const config = {
                     fps: 30,
                     aspectRatio: 1,
-                    // Asegura un área de escaneo cuadrada para ocupar todo el contenedor
                     qrbox: (viewfinderWidth, viewfinderHeight) => {
                         const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
                         return { width: (minEdge / 3) * 2, height: (minEdge / 3) * 2 };
                     },
-
                     rememberLastUsedCamera: false,
                     supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
-                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-                    //videoConstraints: squareCameraConstraints
-
-                    //qrbox: { width: 260, height: 260 },
-
+                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
                 };
 
-                const onScanSuccess = (decodedText, decodedResult) => {
-                    // Aquí puedes manejar el resultado del QR
-                    // console.log('QR:', decodedText, decodedResult);
+                const onScanSuccess = (decodedText) => {
                     setStatus('QR detectado: ' + decodedText);
                 };
-                const onScanFailure = (error) => {
-                    // Errores de frames; suele ser ruidoso. Mantener en silencio o log suave.
-                };
+                const onScanFailure = () => {};
 
                 try {
-                    let started = false;
-                    /*try {
-                        const devices = await Html5Qrcode.getCameras();
-                        const backCamera = devices.find((d) => /back|rear|environment|world|trase|poste/i.test(d.label))
-                            || (devices.length > 1 ? devices[devices.length - 1] : null);
-                        if (backCamera) {
-                            await html5QrCode.start(
-                                { deviceId: { exact: backCamera.id } },
-                                config,
-                                onScanSuccess,
-                                onScanFailure
-                            );
-                            started = true;
-                        }
+                    try {
+                        await html5QrCode.start(cameraConfigStrict, config, onScanSuccess, onScanFailure);
                     } catch (_) {
-                        // ignore and fallback
-                    }*/
-                    if (!started) {
                         try {
-                            await html5QrCode.start(cameraConfigStrict, config, onScanSuccess, onScanFailure);
+                            await html5QrCode.clear();
                         } catch (_) {
-                            // If strict constraints fail, the html5-qrcode instance can remain
-                            // in a transitional state. Recreate it before retrying to avoid
-                            // "Cannot transition to a new state" errors.
-                            try {
-                                await html5QrCode.clear();
-                            } catch (_) {
-                                /* ignore */
-                            }
-                            html5QrCode = new Html5Qrcode("html5-qrcode");
-                            await html5QrCode.start(cameraConfigFallback, config, onScanSuccess, onScanFailure);
+                            // ignore
                         }
+                        html5QrCode = new Html5Qrcode('html5-qrcode');
+                        await html5QrCode.start(cameraConfigFallback, config, onScanSuccess, onScanFailure);
                     }
+
                     state = 'running';
                     setStatus('Scanner iniciado');
                     await readCapabilitiesAndSetupUI();
@@ -344,7 +596,7 @@
             async function pauseScanner() {
                 if (state !== 'running') return;
                 try {
-                    await html5QrCode.pause(true); // pause video feed
+                    await html5QrCode.pause(true);
                     state = 'paused';
                     setStatus('Scanner en pausa');
                 } catch (err) {
@@ -374,33 +626,29 @@
                     await html5QrCode.stop();
                     await html5QrCode.clear();
                 } catch (err) {
-                    // noop
+                    // ignore
                 } finally {
                     state = 'stopped';
-                    // Reset zoom UI to default placeholders
                     hasZoom = false;
+                    hasTorch = false;
+                    tapToFocusSupported = false;
+                    focusCapabilities.hasPointsOfInterest = false;
+                    focusCapabilities.modes = [];
                     zoomDefault = 1;
                     zoomMin = 1;
                     zoomMax = 1;
                     zoomStep = 0.1;
                     currentZoom = zoomDefault;
-                    $zoomRange.value = 1;
-                    $zoomRange.min = 1;
-                    $zoomRange.max = 1;
-                    $zoomRange.step = 0.1;
-                    $zoomMin.textContent = 'x';
-                    $zoomMax.textContent = 'x';
-                    // Reset torch state when no camera is active
-                    hasTorch = false;
+                    resetZoomUI();
                     torchOn = false;
                     $btnTorch.classList.add('btn-dark');
                     $btnTorch.classList.remove('btn-warning');
+                    clearFocusRing();
                     setStatus('Scanner detenido');
                     updateButtons();
                 }
             }
 
-            // Event handlers
             $btnPlay.addEventListener('click', () => {
                 if (state === 'stopped') startScanner();
                 else if (state === 'paused') resumeScanner();
@@ -411,8 +659,7 @@
             });
 
             $btnStop.addEventListener('click', () => {
-                if (state === 'running') stopScanner();
-                else if (state === 'paused') stopScanner();
+                if (state !== 'stopped') stopScanner();
             });
 
             $btnTorch.addEventListener('click', () => {
@@ -426,9 +673,8 @@
             });
 
             $zoomRange.addEventListener('input', (e) => {
-                if (!hasZoom || state === 'stopped') return;
+                if (!hasZoom || state !== 'running') return;
                 const val = Math.round(e.target.value * 100) / 100;
-                //setStatus('Zoom: ' + val + 'x', false);
                 setStatus(val + 'x', false);
                 applyZoom(e.target.value);
             });
@@ -437,9 +683,8 @@
                 setStatus(statusMessage);
             });
 
-            // Estado inicial
+            bindTapToFocusEvents();
             updateButtons();
-            //setStatus('Listo. Presiona “Play” para iniciar el lector.');
             setStatus('Scanner listo');
         })();
         </script>
